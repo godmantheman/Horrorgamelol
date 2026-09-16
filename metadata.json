@@ -1,0 +1,6 @@
+{
+  "name": "Labyrinth: Sub-Level Zero",
+  "description": "거대한 심층 미로에서 괴물들의 추적을 피해 4개의 에너지 코어를 수집하고 탈출하는 대규모 3D 1인칭 공포 생존 게임",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
