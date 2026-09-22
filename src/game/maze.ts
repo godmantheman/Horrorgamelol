@@ -1,4 +1,4 @@
-import { MazeCell, SectorInfo, ItemEntity, GameLog } from '../types';
+import { MazeCell, SectorInfo, ItemEntity, GameLog, WardrobeEntity } from '../types';
 
 export const CELL_SIZE = 5; // 5 meters per cell
 export const WALL_HEIGHT = 4.2; // 4.2 meters high walls
@@ -8,6 +8,7 @@ export interface GeneratedMaze {
   grid: MazeCell[][];
   sectors: SectorInfo[];
   items: ItemEntity[];
+  wardrobes: WardrobeEntity[];
   spawnPoint: { x: number; z: number };
   exitPoint: { x: number; z: number };
   logs: GameLog[];
@@ -321,7 +322,88 @@ export function generateMaze(): GeneratedMaze {
     }
   }
 
-  // 7. Lore Documents
+  // 7. Wardrobes / Lockers (옷장 / 캐비닛)
+  const wardrobes: WardrobeEntity[] = [];
+
+  // Spawn Hub Lockers
+  wardrobes.push({
+    id: 'wardrobe_hub_1',
+    x: center * CELL_SIZE - 4,
+    y: 0,
+    z: center * CELL_SIZE + 3.8,
+    rotationY: 0,
+  });
+  wardrobes.push({
+    id: 'wardrobe_hub_2',
+    x: center * CELL_SIZE + 4,
+    y: 0,
+    z: center * CELL_SIZE + 3.8,
+    rotationY: 0,
+  });
+
+  // Sector Chambers Lockers (1 in each sector)
+  for (const s of sectors) {
+    wardrobes.push({
+      id: `wardrobe_${s.id}`,
+      x: s.x + 3.5,
+      y: 0,
+      z: s.z + 3.5,
+      rotationY: Math.PI / 4,
+    });
+  }
+
+  // Corridors Lockers (scattered neatly against walls)
+  for (let x = 3; x < size - 3; x += 2) {
+    for (let z = 3; z < size - 3; z += 2) {
+      if (grid[x][z].isRoom) continue;
+
+      // Check distance to already placed wardrobes
+      const cx = x * CELL_SIZE;
+      const cz = z * CELL_SIZE;
+      const tooClose = wardrobes.some((w) => Math.hypot(w.x - cx, w.z - cz) < 22);
+      if (tooClose) continue;
+
+      const cell = grid[x][z];
+      if (cell.walls.north) {
+        wardrobes.push({
+          id: `wardrobe_${x}_${z}`,
+          x: cx,
+          y: 0,
+          z: cz - CELL_SIZE / 2 + 0.65,
+          rotationY: 0,
+        });
+      } else if (cell.walls.south) {
+        wardrobes.push({
+          id: `wardrobe_${x}_${z}`,
+          x: cx,
+          y: 0,
+          z: cz + CELL_SIZE / 2 - 0.65,
+          rotationY: Math.PI,
+        });
+      } else if (cell.walls.west) {
+        wardrobes.push({
+          id: `wardrobe_${x}_${z}`,
+          x: cx - CELL_SIZE / 2 + 0.65,
+          y: 0,
+          z: cz,
+          rotationY: Math.PI / 2,
+        });
+      } else if (cell.walls.east) {
+        wardrobes.push({
+          id: `wardrobe_${x}_${z}`,
+          x: cx + CELL_SIZE / 2 - 0.65,
+          y: 0,
+          z: cz,
+          rotationY: -Math.PI / 2,
+        });
+      }
+
+      if (wardrobes.length >= 18) break;
+    }
+    if (wardrobes.length >= 18) break;
+  }
+
+  // 8. Lore Documents
   const logs: GameLog[] = [
     {
       id: 'log_1',
@@ -339,10 +421,10 @@ export function generateMaze(): GeneratedMaze {
     },
     {
       id: 'log_3',
-      title: '생존 팁: 유인 및 회피',
-      author: '알 수 없음',
+      title: '생존 팁: 조명탄 격퇴 & 옷장 은신',
+      author: '수색대 생존자',
       date: '핏자국으로 얼룩짐',
-      text: '적색 조명탄은 놈의 시각을 교란한다. 놈이 쫓아올 때 모퉁이를 돌며 조명탄(G키)을 던져라. 앉아서(C키) 이동하면 발소리를 전혀 내지 않을 수 있다.',
+      text: '초고열 마그네슘 조명탄(G키)을 던지면 놈이 비명을 지르며 공포에 질려 도망친다! 만약 코앞까지 쫓아왔다면 복도와 구역 곳곳의 대형 옷장/캐비닛[E]에 숨어라. 문을 닫고 숨죽이고 있으면 놈이 냄새를 맡다 포기하고 멀리 떠나간다.',
     },
     {
       id: 'log_4',
@@ -357,6 +439,7 @@ export function generateMaze(): GeneratedMaze {
     grid,
     sectors,
     items,
+    wardrobes,
     spawnPoint: { x: center * CELL_SIZE, z: center * CELL_SIZE },
     exitPoint: { x: center * CELL_SIZE, z: 2 * CELL_SIZE },
     logs,

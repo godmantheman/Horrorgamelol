@@ -9,6 +9,7 @@ import {
   Eye,
   AlertTriangle,
   Compass,
+  Shield,
 } from 'lucide-react';
 
 interface GameHUDProps {
@@ -65,6 +66,43 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
       {/* Screen Film Grain & Vignette */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.85)_100%)] pointer-events-none" />
+
+      {/* Wardrobe / Locker Peeking Stealth Overlay */}
+      {stats.isHiding && (
+        <div className="absolute inset-0 pointer-events-none z-30 flex flex-col justify-between">
+          {/* Top locker door frame with ventilation slats */}
+          <div className="w-full bg-gradient-to-b from-black via-zinc-950/95 to-transparent h-28 sm:h-36 border-b-4 border-zinc-900 flex flex-col items-center justify-start pt-3">
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-950/90 border border-cyan-400/80 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.4)] backdrop-blur-md animate-pulse">
+              <Shield className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs sm:text-sm font-black tracking-widest uppercase">
+                [ 🔒 옷장 내부 은신 중 ]
+              </span>
+            </div>
+            <div className="text-[11px] sm:text-xs text-zinc-400 mt-1 font-semibold tracking-wide">
+              괴물이 시야를 잃었습니다. 수색 후 다른 곳으로 떠나갈 때까지 숨죽이십시오.
+            </div>
+            {/* Locker ventilation slits visual */}
+            <div className="flex gap-2 sm:gap-3 mt-2 opacity-50">
+              <div className="w-10 sm:w-16 h-1 bg-zinc-800 rounded-full" />
+              <div className="w-10 sm:w-16 h-1 bg-zinc-800 rounded-full" />
+              <div className="w-10 sm:w-16 h-1 bg-zinc-800 rounded-full" />
+            </div>
+          </div>
+
+          {/* Left and Right locker door edge frames (peeking viewport) */}
+          <div className="flex-1 flex justify-between">
+            <div className="w-6 sm:w-16 bg-gradient-to-r from-black to-transparent h-full border-r border-zinc-800/40" />
+            <div className="w-6 sm:w-16 bg-gradient-to-l from-black to-transparent h-full border-l border-zinc-800/40" />
+          </div>
+
+          {/* Bottom locker door frame */}
+          <div className="w-full bg-gradient-to-t from-black via-zinc-950/95 to-transparent h-24 sm:h-32 border-t-4 border-zinc-900 flex flex-col items-center justify-end pb-3">
+            <div className="px-3 py-1 rounded bg-zinc-900/90 border border-zinc-700 text-amber-300 text-xs font-bold shadow-lg">
+              [E] 키 또는 [상호작용] 버튼을 눌러 옷장 밖으로 나가기
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. Top Banner: Escape Countdown or Danger Warning */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center">

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Difficulty, GraphicsPreset } from '../types';
-import { Play, ShieldAlert, Compass, Flame, Volume2, Eye, Flashlight, Zap, Sliders } from 'lucide-react';
+import { Play, ShieldAlert, Compass, Flame, Volume2, Eye, Flashlight, Zap, Sliders, Shield } from 'lucide-react';
 
 interface StartScreenProps {
   onStart: (difficulty: Difficulty, preset: GraphicsPreset) => void;
@@ -87,31 +87,40 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, currentPreset
         </div>
 
         {/* Survival Tactical Rules */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-          <div className="bg-zinc-900/40 border border-zinc-800 p-3 rounded-lg text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5">
+          <div className="bg-zinc-900/40 border border-zinc-800 p-2.5 rounded-lg text-xs">
             <div className="flex items-center gap-1.5 text-amber-400 font-bold mb-1">
               <Flashlight className="w-3.5 h-3.5" /> 소리와 빛 주의
             </div>
             <p className="text-zinc-400 text-[11px] leading-normal">
-              질주(Shift)하거나 전등(F)을 켜면 놈이 위치를 즉시 알아챕니다. 웅크려(C) 조용히 피하십시오.
+              질주(Shift)하거나 전등(F)을 켜면 놈이 알아챕니다. 웅크려(C) 조용히 피하십시오.
             </p>
           </div>
 
-          <div className="bg-zinc-900/40 border border-zinc-800 p-3 rounded-lg text-xs">
+          <div className="bg-zinc-900/40 border border-red-900/50 p-2.5 rounded-lg text-xs">
             <div className="flex items-center gap-1.5 text-red-400 font-bold mb-1">
-              <Flame className="w-3.5 h-3.5" /> 조명탄 활용 (G키)
+              <Flame className="w-3.5 h-3.5" /> 조명탄 퇴치 (G키)
             </div>
             <p className="text-zinc-400 text-[11px] leading-normal">
-              놈이 추격해올 때 모퉁이 너머로 비상 조명탄을 던지면 놈의 시각과 청각을 교란할 수 있습니다.
+              괴물에게 조명탄을 던지면 강렬한 섬광에 공포를 느끼고 즉시 반대 방향으로 도망칩니다!
             </p>
           </div>
 
-          <div className="bg-zinc-900/40 border border-zinc-800 p-3 rounded-lg text-xs">
+          <div className="bg-zinc-900/40 border border-cyan-900/50 p-2.5 rounded-lg text-xs">
             <div className="flex items-center gap-1.5 text-cyan-400 font-bold mb-1">
+              <Shield className="w-3.5 h-3.5" /> 옷장에 숨기 (E키)
+            </div>
+            <p className="text-zinc-400 text-[11px] leading-normal">
+              복도의 옷장에 숨으면 괴물이 플레이어를 놓치며, 주위를 수색하다가 다른 곳으로 가버립니다.
+            </p>
+          </div>
+
+          <div className="bg-zinc-900/40 border border-zinc-800 p-2.5 rounded-lg text-xs">
+            <div className="flex items-center gap-1.5 text-indigo-400 font-bold mb-1">
               <Compass className="w-3.5 h-3.5" /> 단말기 지도 (M키)
             </div>
             <p className="text-zinc-400 text-[11px] leading-normal">
-              길을 잃었을 때는 단말기(M)를 켜서 4개 구역의 위치와 남은 거리를 확인하십시오.
+              길을 잃었을 때는 단말기(M)를 켜서 4개 구역과 안전 옷장 위치를 파악하십시오.
             </p>
           </div>
         </div>

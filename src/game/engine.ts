@@ -8,6 +8,7 @@ import {
   GameLog,
   Difficulty,
   GraphicsSettings,
+  WardrobeEntity,
 } from '../types';
 import { TextureGenerator } from './textures';
 import { generateMaze, GeneratedMaze, CELL_SIZE, WALL_HEIGHT, MAZE_DIM } from './maze';
@@ -80,6 +81,7 @@ export class GameEngine {
     maxStamina: 100,
     isSprinting: false,
     isCrouching: false,
+    isHiding: false,
     battery: 100,
     flashlightOn: true,
     heartRate: 72,
@@ -102,6 +104,9 @@ export class GameEngine {
   private monster: MonsterController;
   private items: ItemEntity[] = [];
   private itemMeshes: Map<string, THREE.Object3D> = new Map();
+  private wardrobes: WardrobeEntity[] = [];
+  private wardrobeMeshes: THREE.Group[] = [];
+  private currentWardrobe: WardrobeEntity | null = null;
   private flares: FlareEntity[] = [];
   private flareLightGroup: THREE.Group = new THREE.Group();
   private exitDoorMesh: THREE.Mesh | null = null;
@@ -333,6 +338,9 @@ export class GameEngine {
 
     // Build Item Meshes
     this.buildItemMeshes();
+
+    // Build Wardrobe / Locker Meshes (옷장 / 캐비닛)
+    this.buildWardrobeMeshes();
   }
 
   private createCorridorLightFixture(x: number, z: number) {
@@ -468,6 +476,88 @@ export class GameEngine {
         this.scene.add(syrMesh);
         this.itemMeshes.set(item.id, syrMesh);
       }
+    }
+  }
+
+  private buildWardrobeMeshes() {
+    this.wardrobes = this.mazeData.wardrobes || [];
+
+    const cabinetBodyGeo = new THREE.BoxGeometry(1.2, 2.5, 0.85);
+    const cabinetBodyMat = new THREE.MeshStandardMaterial({
+      color: 0x1f242c,
+      roughness: 0.7,
+      metalness: 0.45,
+    });
+
+    const doorGeo = new THREE.BoxGeometry(0.56, 2.35, 0.05);
+    const doorMat = new THREE.MeshStandardMaterial({
+      color: 0x28303b,
+      roughness: 0.6,
+      metalness: 0.55,
+    });
+
+    const ventSlitMat = new THREE.MeshBasicMaterial({ color: 0x090b0e });
+    const ventSlitGeo = new THREE.BoxGeometry(0.36, 0.03, 0.06);
+
+    const handleGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.22, 6);
+    const handleMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      metalness: 0.8,
+      roughness: 0.3,
+    });
+
+    const stencilGeo = new THREE.BoxGeometry(0.36, 0.12, 0.02);
+    const stencilMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+
+    for (const w of this.wardrobes) {
+      const group = new THREE.Group();
+      group.position.set(w.x, 1.25, w.z);
+      group.rotation.y = w.rotationY;
+
+      // Outer metal locker body
+      const bodyMesh = new THREE.Mesh(cabinetBodyGeo, cabinetBodyMat);
+      bodyMesh.castShadow = this.graphicsSettings.shadows;
+      bodyMesh.receiveShadow = this.graphicsSettings.shadows;
+      group.add(bodyMesh);
+
+      // Left Door
+      const leftDoor = new THREE.Mesh(doorGeo, doorMat);
+      leftDoor.position.set(-0.29, 0, 0.43);
+      group.add(leftDoor);
+
+      // Right Door
+      const rightDoor = new THREE.Mesh(doorGeo, doorMat);
+      rightDoor.position.set(0.29, 0, 0.43);
+      group.add(rightDoor);
+
+      // Ventilation peek slats
+      for (let s = 0; s < 3; s++) {
+        const slitL = new THREE.Mesh(ventSlitGeo, ventSlitMat);
+        slitL.position.set(-0.29, 0.7 - s * 0.1, 0.46);
+        group.add(slitL);
+
+        const slitR = new THREE.Mesh(ventSlitGeo, ventSlitMat);
+        slitR.position.set(0.29, 0.7 - s * 0.1, 0.46);
+        group.add(slitR);
+      }
+
+      // Metallic pull handles
+      const handleL = new THREE.Mesh(handleGeo, handleMat);
+      handleL.position.set(-0.06, 0, 0.48);
+      group.add(handleL);
+
+      const handleR = new THREE.Mesh(handleGeo, handleMat);
+      handleR.position.set(0.06, 0, 0.48);
+      group.add(handleR);
+
+      // Identification / Safety stencil label
+      const stencil = new THREE.Mesh(stencilGeo, stencilMat);
+      stencil.position.set(0, 0.98, 0.46);
+      group.add(stencil);
+
+      this.scene.add(group);
+      w.mesh = group;
+      this.wardrobeMeshes.push(group);
     }
   }
 
@@ -728,10 +818,58 @@ export class GameEngine {
       mesh: flareMesh,
     });
 
+    // Monster immediately repelled and panics upon flare launch!
+    const monsterDist = Math.hypot(this.monster.data.x - this.playerPos.x, this.monster.data.z - this.playerPos.z);
+    if (monsterDist < 26) {
+      this.monster.triggerFleeFrom(this.playerPos.x, this.playerPos.z);
+    }
+
     this.callbacks.onStatsUpdate({ ...this.stats });
   }
 
   public tryInteract() {
+    // 1. If currently hiding in wardrobe, EXIT!
+    if (this.stats.isHiding && this.currentWardrobe) {
+      const exitDist = 1.35;
+      this.playerPos.x = this.currentWardrobe.x + Math.sin(this.currentWardrobe.rotationY) * exitDist;
+      this.playerPos.z = this.currentWardrobe.z + Math.cos(this.currentWardrobe.rotationY) * exitDist;
+      this.camera.position.set(this.playerPos.x, 1.7, this.playerPos.z);
+      this.stats.isHiding = false;
+      this.currentWardrobe = null;
+      soundEngine.playLockerExit();
+      this.callbacks.onStatsUpdate({ ...this.stats });
+      this.updateInteractionPrompts();
+      return;
+    }
+
+    // 2. Check closest wardrobe to ENTER
+    let closestWardrobe: WardrobeEntity | null = null;
+    let minWardrobeDist = 2.4;
+    for (const w of this.wardrobes) {
+      const d = Math.hypot(w.x - this.playerPos.x, w.z - this.playerPos.z);
+      if (d < minWardrobeDist) {
+        closestWardrobe = w;
+        minWardrobeDist = d;
+      }
+    }
+
+    if (closestWardrobe) {
+      this.currentWardrobe = closestWardrobe;
+      this.stats.isHiding = true;
+      this.playerPos.x = closestWardrobe.x;
+      this.playerPos.z = closestWardrobe.z;
+      this.camera.position.set(this.playerPos.x, 1.7, this.playerPos.z);
+      // Auto turn off flashlight to preserve stealth inside
+      if (this.stats.flashlightOn) {
+        this.stats.flashlightOn = false;
+        this.flashlight.visible = false;
+      }
+      soundEngine.playLockerEnter();
+      this.callbacks.onStatsUpdate({ ...this.stats });
+      this.updateInteractionPrompts();
+      return;
+    }
+
     // Check closest item within 2.5m
     let closestItem: ItemEntity | null = null;
     let minDist = 2.8;
@@ -907,6 +1045,20 @@ export class GameEngine {
   private updatePlayerMovement(dt: number) {
     if (!this.isRunning) return;
 
+    if (this.stats.isHiding) {
+      if (this.currentWardrobe) {
+        this.playerPos.x = this.currentWardrobe.x;
+        this.playerPos.z = this.currentWardrobe.z;
+        this.camera.position.set(this.playerPos.x, 1.7, this.playerPos.z);
+      }
+      if (this.stats.stamina < this.stats.maxStamina) {
+        this.stats.stamina = Math.min(this.stats.maxStamina, this.stats.stamina + 25 * dt);
+      }
+      this.roll = THREE.MathUtils.lerp(this.roll, 0, 10 * dt);
+      this.updateCameraRotation();
+      return;
+    }
+
     // Movement speeds
     const isSprintWanted = this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.touchSprint;
     const isCrouchWanted = this.keys['KeyC'] || this.keys['ControlLeft'] || this.touchCrouch;
@@ -1076,7 +1228,8 @@ export class GameEngine {
       this.stats.flashlightOn,
       flareCoords,
       (x, z, r) => this.checkWallCollision(x, z, r),
-      (x1, z1, x2, z2) => this.hasLineOfSight(x1, z1, x2, z2)
+      (x1, z1, x2, z2) => this.hasLineOfSight(x1, z1, x2, z2),
+      this.stats.isHiding
     );
 
     const dist = this.monster.data.distanceToPlayer;
@@ -1095,8 +1248,8 @@ export class GameEngine {
     this.callbacks.onMonsterWarning(warningIntensity);
     this.callbacks.onStatsUpdate({ ...this.stats });
 
-    // Jumpscare death trigger!
-    if (dist < 1.65 && !this.isJumpscare) {
+    // Jumpscare death trigger! (Disabled while player is safely hidden in wardrobe)
+    if (dist < 1.65 && !this.isJumpscare && !this.stats.isHiding) {
       this.triggerJumpscare();
     }
   }
@@ -1133,6 +1286,27 @@ export class GameEngine {
   }
 
   private updateInteractionPrompts() {
+    // 1. If currently hiding in wardrobe
+    if (this.stats.isHiding) {
+      this.callbacks.onItemPrompt('[E] 옷장에서 나가기');
+      return;
+    }
+
+    // 2. Check wardrobe hiding prompt
+    let closestWardrobe: WardrobeEntity | null = null;
+    let minWardrobeDist = 2.4;
+    for (const w of this.wardrobes) {
+      const d = Math.hypot(w.x - this.playerPos.x, w.z - this.playerPos.z);
+      if (d < minWardrobeDist) {
+        closestWardrobe = w;
+        minWardrobeDist = d;
+      }
+    }
+    if (closestWardrobe) {
+      this.callbacks.onItemPrompt('[E] 옷장에 숨기 (괴물 회피)');
+      return;
+    }
+
     // Check items
     let prompt: string | null = null;
     let minDist = 2.8;
@@ -1309,5 +1483,9 @@ export class GameEngine {
 
   public getLogs() {
     return this.mazeData.logs;
+  }
+
+  public getWardrobes() {
+    return this.wardrobes;
   }
 }

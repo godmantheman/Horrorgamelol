@@ -307,13 +307,17 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
           <button
             onClick={onInteract}
             className={`w-16 h-16 rounded-full border-2 flex flex-col items-center justify-center transition-all active:scale-90 shadow-2xl ${
-              prompt
+              stats.isHiding
+                ? 'bg-gradient-to-tr from-cyan-600 to-cyan-400 border-cyan-200 text-black shadow-[0_0_24px_rgba(6,182,212,0.95)] animate-pulse'
+                : prompt
                 ? 'bg-gradient-to-tr from-amber-600 to-amber-400 border-amber-200 text-black shadow-[0_0_22px_rgba(245,158,11,0.9)] animate-pulse'
                 : 'bg-zinc-900/85 border-zinc-700 text-zinc-200 hover:bg-zinc-800'
             }`}
           >
-            <Hand className="w-6 h-6" />
-            <span className="text-[10px] font-black mt-0.5">[E] 상호작용</span>
+            {stats.isHiding ? <Shield className="w-6 h-6" /> : <Hand className="w-6 h-6" />}
+            <span className="text-[10px] font-black mt-0.5">
+              {stats.isHiding ? '나가기' : '[E] 상호작용'}
+            </span>
           </button>
         </div>
 

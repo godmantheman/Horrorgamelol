@@ -327,6 +327,7 @@ export default function App() {
           playerPos={engineRef.current.getPlayerPosition()}
           sectors={sectors}
           grid={engineRef.current.getMazeGrid()}
+          wardrobes={engineRef.current.getWardrobes()}
           onClose={() => setShowMap(false)}
         />
       )}

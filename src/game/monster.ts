@@ -20,6 +20,7 @@ export class MonsterController {
   private losCheckTimer: number = 0;
   private cachedLOS: boolean = false;
   private particlesEnabled: boolean = true;
+  private fleeTimer: number = 0;
 
   constructor(startX: number, startZ: number) {
     this.data = {
@@ -149,13 +150,14 @@ export class MonsterController {
     flareEntities: { x: number; z: number; life: number }[],
     checkWallCollision: (x: number, z: number, r: number) => boolean,
     lineOfSightClear: (x1: number, z1: number, x2: number, z2: number) => boolean,
+    isPlayerHiding: boolean = false
   ) {
     const dx = playerPos.x - this.data.x;
     const dz = playerPos.z - this.data.z;
     const dist = Math.hypot(dx, dz);
     this.data.distanceToPlayer = dist;
 
-    this.walkCycle += dt * (this.data.state === 'CHASE' ? 14 : 7);
+    this.walkCycle += dt * (this.data.state === 'CHASE' || this.data.state === 'FLEEING' ? 15 : 7);
 
     // Miasma animation (skip when particles disabled or monster far away)
     if (this.particlesEnabled && dist < 35) {
@@ -180,7 +182,7 @@ export class MonsterController {
     this.groanTimer -= dt;
     if (this.groanTimer <= 0) {
       this.groanTimer = 6 + Math.random() * 8;
-      if (dist < 32 && this.data.state !== 'CHASE') {
+      if (dist < 32 && this.data.state !== 'CHASE' && this.data.state !== 'FLEEING') {
         soundEngine.playMonsterRoarNear();
       }
     }
@@ -190,9 +192,9 @@ export class MonsterController {
     this.leftArm.rotation.x = swing;
     this.rightArm.rotation.x = -swing;
 
-    // Check Flare distraction
+    // 1. Flare Deterrence: Scares monster and forces it to FLEE!
     let nearestFlare: { x: number; z: number } | null = null;
-    let minFlareDist = 18;
+    let minFlareDist = 22; // 22-meter chemical flare intimidation radius
     for (const fl of flareEntities) {
       if (fl.life > 0) {
         const dfl = Math.hypot(fl.x - this.data.x, fl.z - this.data.z);
@@ -203,67 +205,102 @@ export class MonsterController {
       }
     }
 
-    if (nearestFlare && this.data.state !== 'CHASE') {
-      this.data.state = 'INVESTIGATE';
-      this.data.targetX = nearestFlare.x;
-      this.data.targetZ = nearestFlare.z;
+    if (nearestFlare && (this.data.state !== 'FLEEING' || this.fleeTimer <= 1.5)) {
+      this.triggerFleeFrom(nearestFlare.x, nearestFlare.z);
     }
 
     // Throttled line of sight check (saves hundreds of collision tests per frame)
-    this.losCheckTimer -= dt;
-    if (this.losCheckTimer <= 0) {
-      this.losCheckTimer = 0.12; // Check ~8 times/sec instead of 60 times/sec
-      this.cachedLOS = dist < 36 && lineOfSightClear(this.data.x, this.data.z, playerPos.x, playerPos.z);
-    }
-    const hasLOS = this.cachedLOS;
-    let alertIncrease = 0;
-
-    // Proximity hearing: sprinting makes loud sound!
-    if (playerSprinting && dist < 26) {
-      alertIncrease += (26 - dist) * 1.8 * dt;
-    }
-    // Flashlight beam detection
-    if (flashlightOn && hasLOS && dist < 32) {
-      alertIncrease += 45 * dt;
-    } else if (flashlightOn && dist < 12) {
-      alertIncrease += 25 * dt;
-    }
-    // Direct sight line
-    if (hasLOS) {
-      const sightThreshold = playerCrouching ? 8 : 18;
-      if (dist < sightThreshold) {
-        alertIncrease += 50 * dt;
+    let hasLOS = false;
+    if (!isPlayerHiding) {
+      this.losCheckTimer -= dt;
+      if (this.losCheckTimer <= 0) {
+        this.losCheckTimer = 0.12; // Check ~8 times/sec
+        this.cachedLOS = dist < 36 && lineOfSightClear(this.data.x, this.data.z, playerPos.x, playerPos.z);
       }
-    }
-
-    if (alertIncrease > 0) {
-      this.data.alertLevel = Math.min(100, this.data.alertLevel + alertIncrease);
-      if (this.data.alertLevel > 40 && this.data.state === 'PATROL') {
-        this.data.state = 'INVESTIGATE';
-        this.data.targetX = playerPos.x;
-        this.data.targetZ = playerPos.z;
-      }
-      if (this.data.alertLevel >= 85 && this.data.state !== 'CHASE') {
-        this.data.state = 'CHASE';
-        soundEngine.playMonsterScreech();
-      }
+      hasLOS = this.cachedLOS;
     } else {
-      this.data.alertLevel = Math.max(0, this.data.alertLevel - 8 * dt);
+      // Player is sheltered in wardrobe: completely hidden!
+      hasLOS = false;
+    }
+
+    // Alert calculation (only if not fleeing and player not hiding)
+    if (this.data.state !== 'FLEEING') {
+      let alertIncrease = 0;
+
+      if (!isPlayerHiding) {
+        // Proximity hearing: sprinting makes loud sound!
+        if (playerSprinting && dist < 26) {
+          alertIncrease += (26 - dist) * 1.8 * dt;
+        }
+        // Flashlight beam detection
+        if (flashlightOn && hasLOS && dist < 32) {
+          alertIncrease += 45 * dt;
+        } else if (flashlightOn && dist < 12) {
+          alertIncrease += 25 * dt;
+        }
+        // Direct sight line
+        if (hasLOS) {
+          const sightThreshold = playerCrouching ? 8 : 18;
+          if (dist < sightThreshold) {
+            alertIncrease += 50 * dt;
+          }
+        }
+      }
+
+      if (alertIncrease > 0) {
+        this.data.alertLevel = Math.min(100, this.data.alertLevel + alertIncrease);
+        if (this.data.alertLevel > 40 && this.data.state === 'PATROL') {
+          this.data.state = 'INVESTIGATE';
+          this.data.targetX = playerPos.x;
+          this.data.targetZ = playerPos.z;
+        }
+        if (this.data.alertLevel >= 85 && this.data.state !== 'CHASE') {
+          this.data.state = 'CHASE';
+          soundEngine.playMonsterScreech();
+        }
+      } else {
+        // Calm down faster if player is safely hiding
+        const decayRate = isPlayerHiding ? 25 : 8;
+        this.data.alertLevel = Math.max(0, this.data.alertLevel - decayRate * dt);
+      }
     }
 
     // State Machine transitions
-    if (this.data.state === 'CHASE') {
-      this.data.speed = 6.4;
-      this.data.targetX = playerPos.x;
-      this.data.targetZ = playerPos.z;
-      this.data.lastKnownPlayerPos = { x: playerPos.x, z: playerPos.z };
-      this.eyesLight.color.setHex(0xff0000);
-      this.eyesLight.intensity = 3.0;
+    if (this.data.state === 'FLEEING') {
+      this.fleeTimer -= dt;
+      this.data.speed = 7.4;
+      this.data.alertLevel = 0;
 
-      // Lose player if far and blocked by walls
-      if (dist > 36 || (!hasLOS && dist > 18 && this.data.alertLevel < 20)) {
+      // Panicked glowing violet/cyan eyes
+      this.eyesLight.color.setHex(Math.sin(Date.now() * 0.03) > 0 ? 0xa855f7 : 0x06b6d4);
+      this.eyesLight.intensity = 3.2;
+
+      const targetDist = Math.hypot(this.data.targetX - this.data.x, this.data.targetZ - this.data.z);
+      if (this.fleeTimer <= 0 || targetDist < 3.5) {
+        // Fled far enough: transition to searching then patrol
         this.data.state = 'SEARCHING';
         this.lastStateChangeTime = 0;
+        this.pickNewPatrolTarget();
+      }
+    } else if (this.data.state === 'CHASE') {
+      if (isPlayerHiding) {
+        // Player disappeared inside a wardrobe! Monster lost visual!
+        this.data.state = 'SEARCHING';
+        this.lastStateChangeTime = 0;
+        this.data.alertLevel = 25;
+      } else {
+        this.data.speed = 6.4;
+        this.data.targetX = playerPos.x;
+        this.data.targetZ = playerPos.z;
+        this.data.lastKnownPlayerPos = { x: playerPos.x, z: playerPos.z };
+        this.eyesLight.color.setHex(0xff0000);
+        this.eyesLight.intensity = 3.0;
+
+        // Lose player if far and blocked by walls
+        if (dist > 36 || (!hasLOS && dist > 18 && this.data.alertLevel < 20)) {
+          this.data.state = 'SEARCHING';
+          this.lastStateChangeTime = 0;
+        }
       }
     } else if (this.data.state === 'INVESTIGATE') {
       this.data.speed = 4.2;
@@ -279,9 +316,14 @@ export class MonsterController {
       this.eyesLight.color.setHex(0xbb5500);
       this.eyesLight.intensity = 1.2;
       this.lastStateChangeTime += dt;
-      if (this.lastStateChangeTime > 4.5) {
-        this.pickNewPatrolTarget();
+
+      // When searching while player is hiding, search for ~5s then leave area completely
+      const searchDuration = isPlayerHiding ? 5.5 : 4.5;
+      if (this.lastStateChangeTime > searchDuration) {
+        // Monster gives up and leaves far away!
+        this.pickFarPatrolTarget();
         this.data.state = 'PATROL';
+        this.data.alertLevel = 0;
       }
     } else {
       // PATROL
@@ -302,6 +344,41 @@ export class MonsterController {
     this.group.position.z = this.data.z;
     this.group.position.y = Math.sin(this.walkCycle * 2) * 0.08; // Creepy bobbing
     this.group.rotation.y = this.data.rotationY;
+  }
+
+  public triggerFleeFrom(fromX: number, fromZ: number) {
+    if (this.data.state !== 'FLEEING') {
+      soundEngine.playMonsterFlee();
+    }
+    this.data.state = 'FLEEING';
+    this.fleeTimer = 8.5; // Flee for 8.5 seconds
+    this.data.alertLevel = 0;
+    this.data.speed = 7.4;
+
+    // Opposite vector away from the flare
+    let dirX = this.data.x - fromX;
+    let dirZ = this.data.z - fromZ;
+    const len = Math.hypot(dirX, dirZ);
+    if (len > 0.05) {
+      dirX /= len;
+      dirZ /= len;
+    } else {
+      const rnd = Math.random() * Math.PI * 2;
+      dirX = Math.cos(rnd);
+      dirZ = Math.sin(rnd);
+    }
+
+    // Target position 45 meters away in opposite direction
+    this.data.targetX = this.data.x + dirX * 45;
+    this.data.targetZ = this.data.z + dirZ * 45;
+  }
+
+  private pickFarPatrolTarget() {
+    // Pick distant corridor node (40-60 meters away) so monster leaves the hiding spot
+    const randomAngle = Math.random() * Math.PI * 2;
+    const wanderDist = 40 + Math.random() * 25;
+    this.data.targetX = this.data.x + Math.cos(randomAngle) * wanderDist;
+    this.data.targetZ = this.data.z + Math.sin(randomAngle) * wanderDist;
   }
 
   private pickNewPatrolTarget() {

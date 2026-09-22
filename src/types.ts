@@ -7,6 +7,7 @@ export interface PlayerStats {
   maxStamina: number;
   isSprinting: boolean;
   isCrouching: boolean;
+  isHiding: boolean; // True when sheltered inside a wardrobe/locker
   battery: number; // 0 - 100
   flashlightOn: boolean;
   heartRate: number; // 60 - 180
@@ -16,6 +17,15 @@ export interface PlayerStats {
   syringes: number;
   adrenalineActive: boolean;
   adrenalineTimeLeft: number;
+}
+
+export interface WardrobeEntity {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  rotationY: number; // facing angle out into corridor
+  mesh?: any;
 }
 
 export interface SectorInfo {
@@ -54,7 +64,7 @@ export interface FlareEntity {
   mesh?: any;
 }
 
-export type MonsterState = 'PATROL' | 'INVESTIGATE' | 'CHASE' | 'SEARCHING' | 'ATTACK';
+export type MonsterState = 'PATROL' | 'INVESTIGATE' | 'CHASE' | 'SEARCHING' | 'ATTACK' | 'FLEEING';
 
 export interface MonsterData {
   x: number;

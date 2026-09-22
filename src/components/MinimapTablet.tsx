@@ -1,12 +1,13 @@
 import React from 'react';
-import { SectorInfo, MazeCell } from '../types';
-import { X, Compass, Radio, MapPin } from 'lucide-react';
+import { SectorInfo, MazeCell, WardrobeEntity } from '../types';
+import { X, Compass, Radio, MapPin, Shield } from 'lucide-react';
 import { CELL_SIZE, MAZE_DIM } from '../game/maze';
 
 interface MinimapTabletProps {
   playerPos: { x: number; z: number; yaw: number };
   sectors: SectorInfo[];
   grid: MazeCell[][];
+  wardrobes?: WardrobeEntity[];
   onClose: () => void;
 }
 
@@ -14,6 +15,7 @@ export const MinimapTablet: React.FC<MinimapTabletProps> = ({
   playerPos,
   sectors,
   grid,
+  wardrobes = [],
   onClose,
 }) => {
   const mapCanvasSize = 280;
@@ -112,6 +114,20 @@ export const MinimapTablet: React.FC<MinimapTabletProps> = ({
                 );
               })}
 
+              {/* Wardrobe / Locker Markers */}
+              {wardrobes.map((w) => {
+                const wx = w.x * scale;
+                const wy = w.z * scale;
+                return (
+                  <div
+                    key={w.id}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-sm bg-sky-400/90 pointer-events-none"
+                    style={{ left: wx, top: wy }}
+                    title="은신용 옷장"
+                  />
+                );
+              })}
+
               {/* Player Icon & Direction Indicator */}
               <div
                 className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
@@ -125,7 +141,7 @@ export const MinimapTablet: React.FC<MinimapTabletProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-4 mt-3 text-xs text-zinc-400">
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-3 text-xs text-zinc-400">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-cyan-400" /> 플레이어
               </span>
@@ -134,6 +150,9 @@ export const MinimapTablet: React.FC<MinimapTabletProps> = ({
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-amber-400" /> 미수집 코어
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-sm bg-sky-400" /> 은신 옷장
               </span>
             </div>
           </div>
@@ -194,8 +213,8 @@ export const MinimapTablet: React.FC<MinimapTabletProps> = ({
               </div>
             </div>
 
-            <p className="text-[11px] text-zinc-500 mt-2">
-              * 조언: [M]키 또는 [ESC]로 단말기를 닫고 이동을 재개하십시오. 단말기를 보는 중에도 놈은 움직입니다.
+            <p className="text-[11px] text-zinc-400 mt-2 leading-relaxed bg-zinc-900/60 p-2.5 rounded border border-zinc-800">
+              💡 <strong className="text-zinc-200">생존 수칙</strong>: 조명탄(<span className="text-red-400 font-bold">[G]</span>)을 투척하면 괴물이 공포에 질려 즉시 도망치며, 복도 곳곳의 옷장(<span className="text-cyan-400 font-bold">[E]</span>)에 숨으면 괴물이 플레이어를 놓치고 수색 후 떠나갑니다.
             </p>
           </div>
         </div>

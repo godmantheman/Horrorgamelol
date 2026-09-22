@@ -321,6 +321,102 @@ class AudioManager {
     osc.stop(now + 0.55);
   }
 
+  public playLockerEnter() {
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+
+    // Metal door creak & heavy metallic latch
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.linearRampToValueAtTime(140, now + 0.15);
+    osc.frequency.exponentialRampToValueAtTime(70, now + 0.35);
+
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.linearRampToValueAtTime(0.28, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.4);
+
+    // Latch thud
+    setTimeout(() => {
+      if (!this.ctx || !this.masterGain) return;
+      const thudOsc = this.ctx.createOscillator();
+      const thudGain = this.ctx.createGain();
+      const t = this.ctx.currentTime;
+      thudOsc.type = 'triangle';
+      thudOsc.frequency.setValueAtTime(110, t);
+      thudOsc.frequency.exponentialRampToValueAtTime(30, t + 0.12);
+      thudGain.gain.setValueAtTime(0.4, t);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      thudOsc.connect(thudGain);
+      thudGain.connect(this.masterGain);
+      thudOsc.start(t);
+      thudOsc.stop(t + 0.16);
+    }, 180);
+  }
+
+  public playLockerExit() {
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+
+    // Metal door swing open
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.linearRampToValueAtTime(260, now + 0.18);
+    osc.frequency.exponentialRampToValueAtTime(90, now + 0.32);
+
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.linearRampToValueAtTime(0.25, now + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.36);
+  }
+
+  public playMonsterFlee() {
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+
+    // High-pitched panicked screech & chemical recoil
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(680, now);
+    osc1.frequency.exponentialRampToValueAtTime(190, now + 0.9);
+
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(450, now);
+    osc2.frequency.linearRampToValueAtTime(120, now + 0.9);
+
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.linearRampToValueAtTime(0.55, now + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.95);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 1.0);
+    osc2.stop(now + 1.0);
+  }
+
   public playJumpscare() {
     if (!this.ctx || !this.masterGain) return;
     const now = this.ctx.currentTime;
